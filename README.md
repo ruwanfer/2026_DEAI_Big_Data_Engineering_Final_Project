@@ -279,7 +279,7 @@ python import_gold.py
 
 | Name | Role |
 |------|------|
-| Chamith | Data ingestion, Spark silver pipeline, Spark gold pipeline, data lake structure |
+| Chamith Priyamal | Data ingestion, Spark silver pipeline, Spark gold pipeline, data lake structure |
 | Ruwan Fernando | FastAPI layer, DuckDB integration, data analysis endpoints, dashboard |
 
 ---
