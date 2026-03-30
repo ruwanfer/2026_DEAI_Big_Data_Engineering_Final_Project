@@ -3,431 +3,207 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NYC HVFHV Taxi Analytics Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<title>NYC TLC Taxi Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; background: #f4f6f9; color: #333; }
-
-  header {
-    background: #1a3c5e;
-    color: white;
-    padding: 24px 40px;
-  }
-  header h1 { font-size: 24px; font-weight: 600; }
-  header p  { font-size: 13px; opacity: 0.75; margin-top: 4px; }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
-    gap: 24px;
-    padding: 28px 40px;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  .card {
-    background: white;
-    border-radius: 10px;
-    padding: 24px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
-  }
-  .card h2 {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1a3c5e;
-    margin-bottom: 4px;
-  }
-  .card .question {
-    font-size: 12px;
-    color: #888;
-    margin-bottom: 16px;
-  }
+  body { font-family: Arial, sans-serif; background: #f4f6fb; color: #222; }
+  header { background: #1F3864; color: #fff; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header span { font-size: 13px; opacity: 0.7; }
+  #status-bar { background: #e8f4fd; border-bottom: 1px solid #b5d4f4; padding: 10px 32px; font-size: 13px; color: #185FA5; display: flex; align-items: center; gap: 10px; }
+  #status-dot { width: 10px; height: 10px; border-radius: 50%; background: #aaa; flex-shrink: 0; }
+  #status-dot.ok  { background: #1D9E75; }
+  #status-dot.err { background: #E24B4A; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 12px; border: 1px solid #e0e0d8; padding: 20px 24px 24px; }
+  .card.full { grid-column: 1 / -1; }
+  .card h2 { font-size: 15px; font-weight: 600; color: #1F3864; margin-bottom: 4px; }
+  .card p  { font-size: 12px; color: #888; margin-bottom: 16px; }
   .card canvas { max-height: 280px; }
-
-  .stat-row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
-  }
-  .stat {
-    flex: 1;
-    min-width: 110px;
-    background: #f0f4f8;
-    border-radius: 8px;
-    padding: 12px 16px;
-    text-align: center;
-  }
-  .stat .val { font-size: 22px; font-weight: 700; color: #1a3c5e; }
-  .stat .lbl { font-size: 11px; color: #666; margin-top: 2px; }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    margin-top: 8px;
-  }
-  th {
-    background: #1a3c5e;
-    color: white;
-    padding: 8px 10px;
-    text-align: left;
-    font-weight: 500;
-  }
-  td { padding: 7px 10px; border-bottom: 1px solid #eee; }
-  tr:hover td { background: #f8fafc; }
-
-  .loading {
-    text-align: center;
-    padding: 40px;
-    color: #aaa;
-    font-size: 14px;
-  }
-
-  .pill {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-  .pill-uber  { background: #dbeafe; color: #1e40af; }
-  .pill-lyft  { background: #fce7f3; color: #9d174d; }
-  .pill-via   { background: #d1fae5; color: #065f46; }
-  .pill-juno  { background: #fef3c7; color: #92400e; }
-
-  .insight {
-    background: #eff6ff;
-    border-left: 3px solid #2563eb;
-    padding: 10px 14px;
-    font-size: 12px;
-    color: #1e40af;
-    border-radius: 0 6px 6px 0;
-    margin-top: 14px;
-  }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .kpi { background: #f0f4ff; border-radius: 10px; padding: 16px; text-align: center; }
+  .kpi .val { font-size: 26px; font-weight: 700; color: #1F3864; }
+  .kpi .lbl { font-size: 12px; color: #666; margin-top: 4px; }
 </style>
 </head>
 <body>
-
 <header>
-  <h1>NYC HVFHV Taxi Analytics Dashboard</h1>
-  <p>High Volume For-Hire Vehicle Data — January to March 2025 &nbsp;|&nbsp; Uber · Lyft · Via · Juno</p>
+  <h1>NYC TLC Taxi Analytics Dashboard</h1>
+  <span>Yellow &amp; Green Taxi · Jan–Apr 2025</span>
 </header>
-
-<div class="grid">
-
-  <!-- Q1: Provider comparison stats -->
-  <div class="card" id="card-provider">
-    <h2>Q1 — Provider Comparison</h2>
-    <p class="question">How do Uber, Lyft, Via and Juno compare on rides, fare and revenue?</p>
-    <div id="provider-stats" class="loading">Loading...</div>
-    <canvas id="chart-provider"></canvas>
-    <div class="insight" id="insight-provider"></div>
-  </div>
-
-  <!-- Q2: Peak hours -->
-  <div class="card">
-    <h2>Q2 — Peak Hour Demand</h2>
-    <p class="question">Which hours of the day see the highest trip volume?</p>
-    <canvas id="chart-hours"></canvas>
-    <div class="insight" id="insight-hours"></div>
-  </div>
-
-  <!-- Q3: Holiday impact -->
-  <div class="card">
-    <h2>Q3 — Weekday vs Weekend vs Holiday</h2>
-    <p class="question">How do public holidays and weekends affect daily ride demand?</p>
-    <canvas id="chart-holiday"></canvas>
-    <div class="insight" id="insight-holiday"></div>
-  </div>
-
-  <!-- Q4: Average wait time -->
-  <div class="card">
-    <h2>Q4 — Average Wait Time by Borough</h2>
-    <p class="question">How long do riders wait per company and borough?</p>
-    <canvas id="chart-wait"></canvas>
-    <div class="insight" id="insight-wait"></div>
-  </div>
-
-  <!-- Q5: Fare by hour -->
-  <div class="card">
-    <h2>Q5 — Average Fare by Hour</h2>
-    <p class="question">How does average fare vary across hours of the day?</p>
-    <canvas id="chart-fare"></canvas>
-    <div class="insight" id="insight-fare"></div>
-  </div>
-
-  <!-- Q6: Top routes table -->
-  <div class="card">
-    <h2>Q6 — Top 10 Routes</h2>
-    <p class="question">Which pickup to dropoff corridors have the highest trip volume?</p>
-    <div id="table-routes" class="loading">Loading...</div>
-    <div class="insight" id="insight-routes"></div>
-  </div>
-
+<div id="status-bar">
+  <div id="status-dot"></div>
+  <span id="status-text">Connecting to API...</span>
 </div>
-
+<div class="grid">
+  <div class="card full">
+    <h2>Summary KPIs</h2>
+    <p>Aggregated across Jan–Apr 2025</p>
+    <div class="kpi-row">
+      <div class="kpi"><div class="val" id="k-total">—</div><div class="lbl">Total rides</div></div>
+      <div class="kpi"><div class="val" id="k-yellow">—</div><div class="lbl">Yellow taxi rides</div></div>
+      <div class="kpi"><div class="val" id="k-green">—</div><div class="lbl">Green taxi rides</div></div>
+      <div class="kpi"><div class="val" id="k-fare">—</div><div class="lbl">Avg fare (Yellow)</div></div>
+    </div>
+  </div>
+  <div class="card full">
+    <h2>Rides per day over time</h2>
+    <p>Daily trip count — Yellow vs Green</p>
+    <canvas id="chart-rides"></canvas>
+  </div>
+  <div class="card">
+    <h2>Peak hours</h2>
+    <p>Total rides by hour of day</p>
+    <canvas id="chart-hours"></canvas>
+  </div>
+  <div class="card">
+    <h2>Holiday impact on demand</h2>
+    <p>Average rides: weekday vs weekend vs holiday</p>
+    <canvas id="chart-holiday"></canvas>
+  </div>
+  <div class="card">
+    <h2>Yellow vs Green comparison</h2>
+    <p>Avg fare, distance, slow-zone index</p>
+    <canvas id="chart-compare"></canvas>
+  </div>
+  <div class="card">
+    <h2>Top routes</h2>
+    <p>Top 10 pickup to dropoff corridors by trip count</p>
+    <canvas id="chart-routes"></canvas>
+  </div>
+  <div class="card full">
+    <h2>Slow zones ranking</h2>
+    <p>Top 15 most congested zones by slow-zone index</p>
+    <canvas id="chart-zones"></canvas>
+  </div>
+</div>
 <script>
-const BASE = "http://localhost:8000";
+const API = 'http://localhost:8000';
+const YELLOW = 'rgba(250,199,117,0.85)', YELLOW_B = 'rgba(186,117,23,1)';
+const GREEN  = 'rgba(93,202,165,0.85)',  GREEN_B  = 'rgba(15,110,86,1)';
+const BLUE   = 'rgba(55,138,221,0.85)',  BLUE_B   = 'rgba(24,95,165,1)';
+const CORAL  = 'rgba(240,153,123,0.85)';
 
-const COLORS = {
-  Uber: "#2563eb",
-  Lyft: "#db2777",
-  Via:  "#059669",
-  Juno: "#d97706",
-};
-
-const BOROUGH_COLORS = [
-  "#2563eb","#db2777","#059669","#d97706","#7c3aed"
-];
-
-async function fetchJSON(url) {
-  const r = await fetch(url);
+async function get(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error(r.status);
   return r.json();
 }
-
 function fmt(n) {
-  if (n === null || n === undefined) return "—";
-  if (n >= 1_000_000) return (n/1_000_000).toFixed(1) + "M";
-  if (n >= 1_000)     return (n/1_000).toFixed(1) + "K";
-  return Number(n).toFixed(2);
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(0)+'K';
+  return n;
+}
+Chart.defaults.font.family = 'Arial';
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#555';
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+
+async function checkHealth() {
+  try {
+    const h = await get('/health');
+    document.getElementById('status-dot').className = 'ok';
+    document.getElementById('status-text').textContent = `API connected — ${fmt(h.rides_per_day_rows)} rows in rides_per_day`;
+  } catch(e) {
+    document.getElementById('status-dot').className = 'err';
+    document.getElementById('status-text').textContent = 'Cannot reach API at localhost:8000 — make sure uvicorn is running';
+  }
 }
 
-// ── Q1: Provider comparison ──────────────────────────────────────────────────
-async function loadProviderComparison() {
-  const d = await fetchJSON(`${BASE}/analysis/provider-comparison`);
-  const rows = d.data;
-
-  const statsEl = document.getElementById("provider-stats");
-  statsEl.innerHTML = `<div class="stat-row">${rows.map(r => `
-    <div class="stat">
-      <div class="val">${fmt(r.total_rides)}</div>
-      <div class="lbl">${r.company} rides</div>
-    </div>`).join("")}</div>`;
-
-  new Chart(document.getElementById("chart-provider"), {
-    type: "bar",
-    data: {
-      labels: rows.map(r => r.company),
-      datasets: [
-        {
-          label: "Avg Fare ($)",
-          data: rows.map(r => r.overall_avg_fare),
-          backgroundColor: rows.map(r => COLORS[r.company] || "#888"),
-          yAxisID: "y1",
-        },
-        {
-          label: "Avg Driver Pay ($)",
-          data: rows.map(r => r.avg_driver_pay),
-          backgroundColor: rows.map(r => COLORS[r.company] + "88"),
-          yAxisID: "y1",
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: "top" } },
-      scales: {
-        y1: { position: "left", title: { display: true, text: "Amount ($)" } },
-      },
-    },
+async function ridesPerDay() {
+  const d = await get('/rides-per-day?limit=1000');
+  const yellow = d.data.filter(r=>r.dataset==='yellow').sort((a,b)=>a.pickup_date>b.pickup_date?1:-1);
+  const green  = d.data.filter(r=>r.dataset==='green').sort((a,b)=>a.pickup_date>b.pickup_date?1:-1);
+  const totalY = yellow.reduce((s,r)=>s+r.total_rides,0);
+  const totalG = green.reduce((s,r)=>s+r.total_rides,0);
+  document.getElementById('k-total').textContent  = fmt(totalY+totalG);
+  document.getElementById('k-yellow').textContent = fmt(totalY);
+  document.getElementById('k-green').textContent  = fmt(totalG);
+  new Chart(document.getElementById('chart-rides'), {
+    type:'line',
+    data:{ labels:yellow.map(r=>r.pickup_date.slice(5)), datasets:[
+      {label:'Yellow',data:yellow.map(r=>r.total_rides),borderColor:YELLOW_B,backgroundColor:YELLOW,fill:true,tension:0.3,pointRadius:0},
+      {label:'Green', data:green.map(r=>r.total_rides), borderColor:GREEN_B, backgroundColor:GREEN, fill:true,tension:0.3,pointRadius:0},
+    ]},
+    options:{responsive:true,interaction:{mode:'index'},scales:{x:{ticks:{maxTicksLimit:20}},y:{beginAtZero:false}}}
   });
-
-  const top = rows[0];
-  document.getElementById("insight-provider").innerText =
-    `${top.company} leads with ${fmt(top.total_rides)} total trips and $${fmt(top.total_net_revenue)} net revenue over the period.`;
 }
 
-// ── Q2: Peak hours ───────────────────────────────────────────────────────────
-async function loadPeakHours() {
-  const d = await fetchJSON(`${BASE}/hourly_demand`);
-  // Fallback: read from hourly-demand endpoint
-  const d2 = await fetchJSON(`${BASE}/hourly-demand`);
-  const rows = d2.data;
-
-  const companies = [...new Set(rows.map(r => r.company))];
-  const hours = [...Array(24).keys()];
-
-  const datasets = companies.map(co => ({
-    label: co,
-    data: hours.map(h => {
-      const match = rows.filter(r => r.company === co && r.pickup_hour === h);
-      return match.reduce((s, r) => s + r.total_rides, 0);
-    }),
-    borderColor: COLORS[co] || "#888",
-    backgroundColor: "transparent",
-    tension: 0.4,
-    pointRadius: 3,
-  }));
-
-  new Chart(document.getElementById("chart-hours"), {
-    type: "line",
-    data: { labels: hours.map(h => `${h}:00`), datasets },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: "top" } },
-      scales: {
-        y: { title: { display: true, text: "Total Rides" } },
-        x: { title: { display: true, text: "Hour of Day" } },
-      },
-    },
+async function peakHours() {
+  const full = await get('/hourly-demand');
+  const hours = Array.from({length:24},(_,i)=>i);
+  const byDsHour = {};
+  full.data.forEach(r => { const k=r.dataset+'_'+r.pickup_hour; byDsHour[k]=(byDsHour[k]||0)+r.total_rides; });
+  new Chart(document.getElementById('chart-hours'), {
+    type:'bar',
+    data:{ labels:hours.map(h=>h+':00'), datasets:[
+      {label:'Yellow',data:hours.map(h=>byDsHour['yellow_'+h]||0),backgroundColor:YELLOW,borderColor:YELLOW_B,borderWidth:1},
+      {label:'Green', data:hours.map(h=>byDsHour['green_'+h]||0), backgroundColor:GREEN, borderColor:GREEN_B, borderWidth:1},
+    ]},
+    options:{responsive:true,scales:{y:{beginAtZero:true}}}
   });
-
-  document.getElementById("insight-hours").innerText =
-    "Morning (7-9 AM) and evening (5-8 PM) rush hours show peak demand. Late night (2-5 AM) is the quietest period.";
 }
 
-// ── Q3: Holiday impact ───────────────────────────────────────────────────────
-async function loadHolidayImpact() {
-  const d = await fetchJSON(`${BASE}/analysis/holiday-impact`);
-  const rows = d.data;
-
-  const dayTypes = [...new Set(rows.map(r => r.day_type))];
-  const companies = [...new Set(rows.map(r => r.company))];
-
-  const datasets = companies.map((co, i) => ({
-    label: co,
-    data: dayTypes.map(dt => {
-      const match = rows.find(r => r.company === co && r.day_type === dt);
-      return match ? match.avg_rides : 0;
-    }),
-    backgroundColor: COLORS[co] || "#888",
-  }));
-
-  new Chart(document.getElementById("chart-holiday"), {
-    type: "bar",
-    data: { labels: dayTypes, datasets },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: "top" } },
-      scales: {
-        y: { title: { display: true, text: "Avg Daily Rides" } },
-      },
-    },
+async function holidayImpact() {
+  const d = await get('/analysis/holiday-impact');
+  const types = ['weekday','weekend','public_holiday'];
+  new Chart(document.getElementById('chart-holiday'), {
+    type:'bar',
+    data:{ labels:['Weekday','Weekend','Public Holiday'], datasets:[
+      {label:'Yellow',data:types.map(t=>{const r=d.data.find(x=>x.dataset==='yellow'&&x.day_type===t);return r?r.avg_rides:0;}),backgroundColor:YELLOW,borderColor:YELLOW_B,borderWidth:1},
+      {label:'Green', data:types.map(t=>{const r=d.data.find(x=>x.dataset==='green'&&x.day_type===t); return r?r.avg_rides:0;}),backgroundColor:GREEN, borderColor:GREEN_B, borderWidth:1},
+    ]},
+    options:{responsive:true,scales:{y:{beginAtZero:true}}}
   });
-
-  document.getElementById("insight-holiday").innerText =
-    "Weekdays consistently show higher average ride volumes. Public holidays see the steepest drops across all providers.";
 }
 
-// ── Q4: Wait time ────────────────────────────────────────────────────────────
-async function loadWaitTime() {
-  const d = await fetchJSON(`${BASE}/analysis/avg-wait-time`);
-  const rows = d.data;
-
-  const boroughs  = [...new Set(rows.map(r => r.borough))].filter(Boolean);
-  const companies = [...new Set(rows.map(r => r.company))];
-
-  const datasets = companies.map(co => ({
-    label: co,
-    data: boroughs.map(b => {
-      const match = rows.find(r => r.company === co && r.borough === b);
-      return match ? match.avg_wait_min : 0;
-    }),
-    backgroundColor: COLORS[co] || "#888",
-  }));
-
-  new Chart(document.getElementById("chart-wait"), {
-    type: "bar",
-    data: { labels: boroughs, datasets },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: "top" } },
-      scales: {
-        y: { title: { display: true, text: "Avg Wait Time (min)" } },
-      },
-    },
+async function yellowVsGreen() {
+  const d = await get('/analysis/yellow-vs-green');
+  const yellow = d.data.find(r=>r.dataset==='yellow');
+  const green  = d.data.find(r=>r.dataset==='green');
+  if (yellow) document.getElementById('k-fare').textContent = '$' + yellow.overall_avg_fare;
+  new Chart(document.getElementById('chart-compare'), {
+    type:'bar',
+    data:{ labels:['Avg fare ($)','Avg distance (mi)','Slow-zone index'], datasets:[
+      {label:'Yellow',data:[yellow?yellow.overall_avg_fare:0,yellow?yellow.overall_avg_distance_miles:0,yellow?yellow.avg_slow_zone_index:0],backgroundColor:YELLOW,borderColor:YELLOW_B,borderWidth:1},
+      {label:'Green', data:[green?green.overall_avg_fare:0,  green?green.overall_avg_distance_miles:0,  green?green.avg_slow_zone_index:0],  backgroundColor:GREEN, borderColor:GREEN_B, borderWidth:1},
+    ]},
+    options:{responsive:true,scales:{y:{beginAtZero:true}}}
   });
-
-  document.getElementById("insight-wait").innerText =
-    "Manhattan has the shortest average wait times due to high driver density. Outer boroughs show longer and more variable waits.";
 }
 
-// ── Q5: Fare by hour ─────────────────────────────────────────────────────────
-async function loadFareByHour() {
-  const d = await fetchJSON(`${BASE}/fare-stats`);
-  const rows = d.data;
-
-  const companies = [...new Set(rows.map(r => r.company))];
-  const hours = [...Array(24).keys()];
-
-  const datasets = companies.map(co => ({
-    label: co,
-    data: hours.map(h => {
-      const match = rows.filter(r => r.company === co && r.pickup_hour === h);
-      if (!match.length) return null;
-      return (match.reduce((s,r) => s + r.avg_fare, 0) / match.length).toFixed(2);
-    }),
-    borderColor: COLORS[co] || "#888",
-    backgroundColor: "transparent",
-    tension: 0.4,
-    pointRadius: 3,
-  }));
-
-  new Chart(document.getElementById("chart-fare"), {
-    type: "line",
-    data: { labels: hours.map(h => `${h}:00`), datasets },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: "top" } },
-      scales: {
-        y: { title: { display: true, text: "Avg Fare ($)" } },
-        x: { title: { display: true, text: "Hour of Day" } },
-      },
-    },
+async function topRoutes() {
+  const d = await get('/top-routes?limit=10&dataset=yellow');
+  new Chart(document.getElementById('chart-routes'), {
+    type:'bar',
+    data:{ labels:d.data.map(r=>r.pickup_zone.slice(0,14)+' > '+r.dropoff_zone.slice(0,14)), datasets:[
+      {label:'Trip count',data:d.data.map(r=>r.trip_count),backgroundColor:BLUE,borderColor:BLUE_B,borderWidth:1}
+    ]},
+    options:{indexAxis:'y',responsive:true,scales:{x:{beginAtZero:true}},plugins:{legend:{display:false}}}
   });
-
-  document.getElementById("insight-fare").innerText =
-    "Late night hours (11 PM - 4 AM) show higher average fares, likely reflecting surge pricing and longer airport trips.";
 }
 
-// ── Q6: Top routes table ─────────────────────────────────────────────────────
-async function loadTopRoutes() {
-  const d = await fetchJSON(`${BASE}/top-routes?limit=10`);
-  const rows = d.data;
-
-  const pillClass = co =>
-    co === "Uber" ? "pill-uber" : co === "Lyft" ? "pill-lyft" :
-    co === "Via"  ? "pill-via"  : "pill-juno";
-
-  const html = `
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Company</th>
-          <th>Pickup Zone</th>
-          <th>Dropoff Zone</th>
-          <th>Trips</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map((r, i) => `
-          <tr>
-            <td>${i + 1}</td>
-            <td><span class="pill ${pillClass(r.company)}">${r.company}</span></td>
-            <td>${r.pickup_zone || "—"} <small style="color:#999">${r.pickup_borough || ""}</small></td>
-            <td>${r.dropoff_zone || "—"} <small style="color:#999">${r.dropoff_borough || ""}</small></td>
-            <td>${Number(r.trip_count).toLocaleString()}</td>
-          </tr>`).join("")}
-      </tbody>
-    </table>`;
-
-  document.getElementById("table-routes").innerHTML = html;
-  document.getElementById("insight-routes").innerText =
-    "Airport corridors (JFK, LaGuardia) and Manhattan hub-to-hub routes dominate the top 10 across all providers.";
+async function slowZones() {
+  const d = await get('/analysis/slow-zones?top_n=15');
+  new Chart(document.getElementById('chart-zones'), {
+    type:'bar',
+    data:{ labels:d.data.map(r=>r.zone_name), datasets:[
+      {label:'Slow-zone index',data:d.data.map(r=>r.avg_slow_zone_index),backgroundColor:CORAL,borderColor:'rgba(153,60,29,0.9)',borderWidth:1}
+    ]},
+    options:{responsive:true,scales:{y:{beginAtZero:true}},plugins:{legend:{display:false}}}
+  });
 }
 
-// ── Boot all ──────────────────────────────────────────────────────────────────
-Promise.all([
-  loadProviderComparison(),
-  loadPeakHours(),
-  loadHolidayImpact(),
-  loadWaitTime(),
-  loadFareByHour(),
-  loadTopRoutes(),
-]).catch(err => console.error("Dashboard error:", err));
+(async () => {
+  await checkHealth();
+  try { await ridesPerDay(); }   catch(e) { console.error('rides',e); }
+  try { await peakHours(); }     catch(e) { console.error('hours',e); }
+  try { await holidayImpact(); } catch(e) { console.error('holiday',e); }
+  try { await yellowVsGreen(); } catch(e) { console.error('compare',e); }
+  try { await topRoutes(); }     catch(e) { console.error('routes',e); }
+  try { await slowZones(); }     catch(e) { console.error('zones',e); }
+})();
 </script>
 </body>
 </html>
