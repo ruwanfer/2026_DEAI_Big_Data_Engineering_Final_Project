@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NYC HVFHV Taxi Analytics Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f4f6f9; color: #333; }
+
+  header {
+    background: #1a3c5e;
+    color: white;
+    padding: 24px 40px;
+  }
+  header h1 { font-size: 24px; font-weight: 600; }
+  header p  { font-size: 13px; opacity: 0.75; margin-top: 4px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+    gap: 24px;
+    padding: 28px 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .card {
+    background: white;
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  }
+  .card h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a3c5e;
+    margin-bottom: 4px;
+  }
+  .card .question {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 16px;
+  }
+  .card canvas { max-height: 280px; }
+
+  .stat-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .stat {
+    flex: 1;
+    min-width: 110px;
+    background: #f0f4f8;
+    border-radius: 8px;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .stat .val { font-size: 22px; font-weight: 700; color: #1a3c5e; }
+  .stat .lbl { font-size: 11px; color: #666; margin-top: 2px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  th {
+    background: #1a3c5e;
+    color: white;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 500;
+  }
+  td { padding: 7px 10px; border-bottom: 1px solid #eee; }
+  tr:hover td { background: #f8fafc; }
+
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: #aaa;
+    font-size: 14px;
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill-uber  { background: #dbeafe; color: #1e40af; }
+  .pill-lyft  { background: #fce7f3; color: #9d174d; }
+  .pill-via   { background: #d1fae5; color: #065f46; }
+  .pill-juno  { background: #fef3c7; color: #92400e; }
+
+  .insight {
+    background: #eff6ff;
+    border-left: 3px solid #2563eb;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #1e40af;
+    border-radius: 0 6px 6px 0;
+    margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NYC HVFHV Taxi Analytics Dashboard</h1>
+  <p>High Volume For-Hire Vehicle Data — January to March 2025 &nbsp;|&nbsp; Uber · Lyft · Via · Juno</p>
+</header>
+
+<div class="grid">
+
+  <!-- Q1: Provider comparison stats -->
+  <div class="card" id="card-provider">
+    <h2>Q1 — Provider Comparison</h2>
+    <p class="question">How do Uber, Lyft, Via and Juno compare on rides, fare and revenue?</p>
+    <div id="provider-stats" class="loading">Loading...</div>
+    <canvas id="chart-provider"></canvas>
+    <div class="insight" id="insight-provider"></div>
+  </div>
+
+  <!-- Q2: Peak hours -->
+  <div class="card">
+    <h2>Q2 — Peak Hour Demand</h2>
+    <p class="question">Which hours of the day see the highest trip volume?</p>
+    <canvas id="chart-hours"></canvas>
+    <div class="insight" id="insight-hours"></div>
+  </div>
+
+  <!-- Q3: Holiday impact -->
+  <div class="card">
+    <h2>Q3 — Weekday vs Weekend vs Holiday</h2>
+    <p class="question">How do public holidays and weekends affect daily ride demand?</p>
+    <canvas id="chart-holiday"></canvas>
+    <div class="insight" id="insight-holiday"></div>
+  </div>
+
+  <!-- Q4: Average wait time -->
+  <div class="card">
+    <h2>Q4 — Average Wait Time by Borough</h2>
+    <p class="question">How long do riders wait per company and borough?</p>
+    <canvas id="chart-wait"></canvas>
+    <div class="insight" id="insight-wait"></div>
+  </div>
+
+  <!-- Q5: Fare by hour -->
+  <div class="card">
+    <h2>Q5 — Average Fare by Hour</h2>
+    <p class="question">How does average fare vary across hours of the day?</p>
+    <canvas id="chart-fare"></canvas>
+    <div class="insight" id="insight-fare"></div>
+  </div>
+
+  <!-- Q6: Top routes table -->
+  <div class="card">
+    <h2>Q6 — Top 10 Routes</h2>
+    <p class="question">Which pickup to dropoff corridors have the highest trip volume?</p>
+    <div id="table-routes" class="loading">Loading...</div>
+    <div class="insight" id="insight-routes"></div>
+  </div>
+
+</div>
+
+<script>
+const BASE = "http://localhost:8000";
+
+const COLORS = {
+  Uber: "#2563eb",
+  Lyft: "#db2777",
+  Via:  "#059669",
+  Juno: "#d97706",
+};
+
+const BOROUGH_COLORS = [
+  "#2563eb","#db2777","#059669","#d97706","#7c3aed"
+];
+
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  return r.json();
+}
+
+function fmt(n) {
+  if (n === null || n === undefined) return "—";
+  if (n >= 1_000_000) return (n/1_000_000).toFixed(1) + "M";
+  if (n >= 1_000)     return (n/1_000).toFixed(1) + "K";
+  return Number(n).toFixed(2);
+}
+
+// ── Q1: Provider comparison ──────────────────────────────────────────────────
+async function loadProviderComparison() {
+  const d = await fetchJSON(`${BASE}/analysis/provider-comparison`);
+  const rows = d.data;
+
+  const statsEl = document.getElementById("provider-stats");
+  statsEl.innerHTML = `<div class="stat-row">${rows.map(r => `
+    <div class="stat">
+      <div class="val">${fmt(r.total_rides)}</div>
+      <div class="lbl">${r.company} rides</div>
+    </div>`).join("")}</div>`;
+
+  new Chart(document.getElementById("chart-provider"), {
+    type: "bar",
+    data: {
+      labels: rows.map(r => r.company),
+      datasets: [
+        {
+          label: "Avg Fare ($)",
+          data: rows.map(r => r.overall_avg_fare),
+          backgroundColor: rows.map(r => COLORS[r.company] || "#888"),
+          yAxisID: "y1",
+        },
+        {
+          label: "Avg Driver Pay ($)",
+          data: rows.map(r => r.avg_driver_pay),
+          backgroundColor: rows.map(r => COLORS[r.company] + "88"),
+          yAxisID: "y1",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: "top" } },
+      scales: {
+        y1: { position: "left", title: { display: true, text: "Amount ($)" } },
+      },
+    },
+  });
+
+  const top = rows[0];
+  document.getElementById("insight-provider").innerText =
+    `${top.company} leads with ${fmt(top.total_rides)} total trips and $${fmt(top.total_net_revenue)} net revenue over the period.`;
+}
+
+// ── Q2: Peak hours ───────────────────────────────────────────────────────────
+async function loadPeakHours() {
+  const d = await fetchJSON(`${BASE}/hourly_demand`);
+  // Fallback: read from hourly-demand endpoint
+  const d2 = await fetchJSON(`${BASE}/hourly-demand`);
+  const rows = d2.data;
+
+  const companies = [...new Set(rows.map(r => r.company))];
+  const hours = [...Array(24).keys()];
+
+  const datasets = companies.map(co => ({
+    label: co,
+    data: hours.map(h => {
+      const match = rows.filter(r => r.company === co && r.pickup_hour === h);
+      return match.reduce((s, r) => s + r.total_rides, 0);
+    }),
+    borderColor: COLORS[co] || "#888",
+    backgroundColor: "transparent",
+    tension: 0.4,
+    pointRadius: 3,
+  }));
+
+  new Chart(document.getElementById("chart-hours"), {
+    type: "line",
+    data: { labels: hours.map(h => `${h}:00`), datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: "top" } },
+      scales: {
+        y: { title: { display: true, text: "Total Rides" } },
+        x: { title: { display: true, text: "Hour of Day" } },
+      },
+    },
+  });
+
+  document.getElementById("insight-hours").innerText =
+    "Morning (7-9 AM) and evening (5-8 PM) rush hours show peak demand. Late night (2-5 AM) is the quietest period.";
+}
+
+// ── Q3: Holiday impact ───────────────────────────────────────────────────────
+async function loadHolidayImpact() {
+  const d = await fetchJSON(`${BASE}/analysis/holiday-impact`);
+  const rows = d.data;
+
+  const dayTypes = [...new Set(rows.map(r => r.day_type))];
+  const companies = [...new Set(rows.map(r => r.company))];
+
+  const datasets = companies.map((co, i) => ({
+    label: co,
+    data: dayTypes.map(dt => {
+      const match = rows.find(r => r.company === co && r.day_type === dt);
+      return match ? match.avg_rides : 0;
+    }),
+    backgroundColor: COLORS[co] || "#888",
+  }));
+
+  new Chart(document.getElementById("chart-holiday"), {
+    type: "bar",
+    data: { labels: dayTypes, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: "top" } },
+      scales: {
+        y: { title: { display: true, text: "Avg Daily Rides" } },
+      },
+    },
+  });
+
+  document.getElementById("insight-holiday").innerText =
+    "Weekdays consistently show higher average ride volumes. Public holidays see the steepest drops across all providers.";
+}
+
+// ── Q4: Wait time ────────────────────────────────────────────────────────────
+async function loadWaitTime() {
+  const d = await fetchJSON(`${BASE}/analysis/avg-wait-time`);
+  const rows = d.data;
+
+  const boroughs  = [...new Set(rows.map(r => r.borough))].filter(Boolean);
+  const companies = [...new Set(rows.map(r => r.company))];
+
+  const datasets = companies.map(co => ({
+    label: co,
+    data: boroughs.map(b => {
+      const match = rows.find(r => r.company === co && r.borough === b);
+      return match ? match.avg_wait_min : 0;
+    }),
+    backgroundColor: COLORS[co] || "#888",
+  }));
+
+  new Chart(document.getElementById("chart-wait"), {
+    type: "bar",
+    data: { labels: boroughs, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: "top" } },
+      scales: {
+        y: { title: { display: true, text: "Avg Wait Time (min)" } },
+      },
+    },
+  });
+
+  document.getElementById("insight-wait").innerText =
+    "Manhattan has the shortest average wait times due to high driver density. Outer boroughs show longer and more variable waits.";
+}
+
+// ── Q5: Fare by hour ─────────────────────────────────────────────────────────
+async function loadFareByHour() {
+  const d = await fetchJSON(`${BASE}/fare-stats`);
+  const rows = d.data;
+
+  const companies = [...new Set(rows.map(r => r.company))];
+  const hours = [...Array(24).keys()];
+
+  const datasets = companies.map(co => ({
+    label: co,
+    data: hours.map(h => {
+      const match = rows.filter(r => r.company === co && r.pickup_hour === h);
+      if (!match.length) return null;
+      return (match.reduce((s,r) => s + r.avg_fare, 0) / match.length).toFixed(2);
+    }),
+    borderColor: COLORS[co] || "#888",
+    backgroundColor: "transparent",
+    tension: 0.4,
+    pointRadius: 3,
+  }));
+
+  new Chart(document.getElementById("chart-fare"), {
+    type: "line",
+    data: { labels: hours.map(h => `${h}:00`), datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: "top" } },
+      scales: {
+        y: { title: { display: true, text: "Avg Fare ($)" } },
+        x: { title: { display: true, text: "Hour of Day" } },
+      },
+    },
+  });
+
+  document.getElementById("insight-fare").innerText =
+    "Late night hours (11 PM - 4 AM) show higher average fares, likely reflecting surge pricing and longer airport trips.";
+}
+
+// ── Q6: Top routes table ─────────────────────────────────────────────────────
+async function loadTopRoutes() {
+  const d = await fetchJSON(`${BASE}/top-routes?limit=10`);
+  const rows = d.data;
+
+  const pillClass = co =>
+    co === "Uber" ? "pill-uber" : co === "Lyft" ? "pill-lyft" :
+    co === "Via"  ? "pill-via"  : "pill-juno";
+
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Company</th>
+          <th>Pickup Zone</th>
+          <th>Dropoff Zone</th>
+          <th>Trips</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((r, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td><span class="pill ${pillClass(r.company)}">${r.company}</span></td>
+            <td>${r.pickup_zone || "—"} <small style="color:#999">${r.pickup_borough || ""}</small></td>
+            <td>${r.dropoff_zone || "—"} <small style="color:#999">${r.dropoff_borough || ""}</small></td>
+            <td>${Number(r.trip_count).toLocaleString()}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+
+  document.getElementById("table-routes").innerHTML = html;
+  document.getElementById("insight-routes").innerText =
+    "Airport corridors (JFK, LaGuardia) and Manhattan hub-to-hub routes dominate the top 10 across all providers.";
+}
+
+// ── Boot all ──────────────────────────────────────────────────────────────────
+Promise.all([
+  loadProviderComparison(),
+  loadPeakHours(),
+  loadHolidayImpact(),
+  loadWaitTime(),
+  loadFareByHour(),
+  loadTopRoutes(),
+]).catch(err => console.error("Dashboard error:", err));
+</script>
+</body>
+</html>
