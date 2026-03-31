@@ -114,8 +114,8 @@ taxi/
 │   └── green/                 # Original Green taxi Parquet files
 │
 ├── silver/
-│   ├── yellow/                # Cleaned + feature-engineered, partitioned by pickup_month
-│   └── green/
+│   ├── hvfhv/                # Cleaned + feature-engineered, partitioned by pickup_month
+│   
 │
 ├── gold/
 │   ├── rides_per_day/         # Daily ride counts with calendar flags
