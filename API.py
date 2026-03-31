@@ -1,6 +1,4 @@
-"""
 NYC HVFHV Taxi Analytics API
-=============================
 FastAPI + DuckDB over MinIO gold layer
 Dataset : High Volume For-Hire Vehicle (Uber, Lyft, Via, Juno)
 Period  : January - March 2025
@@ -60,7 +58,7 @@ def gold(table: str) -> str:
     return f"s3://{BUCKET}/gold/{table}/**/*.parquet"
 
 
-# ── Health ────────────────────────────────────────────────────────────────────
+# Health 
 
 @app.get("/", tags=["Health"])
 def root():
@@ -84,7 +82,7 @@ def health():
         raise HTTPException(status_code=503, detail=f"MinIO unreachable: {e}")
 
 
-# ── Core endpoints ────────────────────────────────────────────────────────────
+# Core endpoints 
 
 @app.get("/rides-per-day", tags=["Demand"], summary="Daily ride counts per company")
 def rides_per_day(
@@ -279,7 +277,7 @@ def wait_time(
     return {"count": len(rows), "data": rows.to_dict(orient="records")}
 
 
-# ── Analysis endpoints ────────────────────────────────────────────────────────
+# Analysis endpoints 
 
 @app.get("/analysis/peak-hours", tags=["Analysis"], summary="Q1: Which hours have highest demand?")
 def analysis_peak_hours(
