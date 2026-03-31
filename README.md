@@ -33,17 +33,17 @@ This project implements a big data pipeline that:
 5. **Serves** analytics results through a FastAPI REST API backed by DuckDB
 6. **Visualises** results in an interactive HTML dashboard
 
-**Dataset:** NYC TLC Yellow Taxi + Green Taxi, January 2025 – April 2025  
-**Total files:** 8 Parquet files (4 per dataset)
+**Dataset:** NYC TLC High Volume For-Hire Vehicle Trip Records, January 2025 – March 2025  
+**Total files:** 3 Parquet files
 
 ---
 
 ## Architecture
 
 ```
-NYC TLC CloudFront CDN
+NYC TLC
         │
-        ▼  wget + pandas download
+        ▼  Python download
 MinIO  ──►  taxi/raw/
         │
         ▼  Spark silver pipeline (clean + feature engineering)
@@ -122,8 +122,8 @@ taxi/
 │   ├── hourly_demand/         # Trip volume by hour and day of week
 │   ├── provider_summary/      # Daily KPIs per dataset
 │   ├── top_routes/            # Top 20 pickup→dropoff corridors
-│   ├── fare_stats/            # Fare and tip statistics by hour/month
-│   └── daily_zone_stats/      # Daily stats per taxi zone
+│   └── wait_time_stats/       # Wait time for customers for each cab company for location
+│   
 │
 ├── dimensions/
 │   ├── zones/                 # Taxi zone lookup (263 NYC zones)
@@ -163,12 +163,12 @@ Six pre-aggregated analytics tables produced by joining silver data with dimensi
 
 | Table | Grain | Key Metrics |
 |-------|-------|-------------|
-| `rides_per_day` | date × dataset | total_rides, is_weekday, is_holiday |
-| `hourly_demand` | hour × day × dataset | total_rides |
-| `provider_summary` | date × dataset | avg_fare, avg_distance, net_revenue, slow_zone_index |
-| `top_routes` | pickup × dropoff × dataset | trip_count, rank, zone names |
-| `fare_stats` | hour × month × dataset | avg/min/max fare, avg_tip, tip_pct |
-| `daily_zone_stats` | date × zone × dataset | trip_count, net_revenue, slow_zone_index |
+| `rides_per_day` | date × company | total_rides, is_weekday, is_holiday, day_name |
+| `hourly_demand` | hour × day_of_week × company | total_rides |
+| `provider_summary` | date × company | avg_distance, avg_fare, total_net_revenue, avg_driver_pay, avg_slow_zone_index |
+| `top_routes` | pickup × dropoff × company | trip_count, rank (Top 20), zone_names, boroughs |
+| `fare_stats` | hour × month × company | trip_count, avg/min/max fare, avg_tip, avg_tip_pct, avg_driver_pay |
+| `wait_time_stats` | hour × month × pickup_zone × company | trip_count, avg_wait_min, min_wait_min, max_wait_min |
 
 ---
 
