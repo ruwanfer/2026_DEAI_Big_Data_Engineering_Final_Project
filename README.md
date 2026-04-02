@@ -284,6 +284,6 @@ firefox file:///home/ruwan-fernando/dashboard.html
 
 ---
 
-**Course:** Big Data Engineering (DEAI)  
+**Course:** Big Data Engineering (DEAI)  Turku University of Applied Sciences
 **Year:** 2026  
 
