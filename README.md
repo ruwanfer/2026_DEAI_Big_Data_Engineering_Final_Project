@@ -273,6 +273,17 @@ firefox file:///home/ruwan-fernando/dashboard.html
 
 ---
 
+## Resources
+
+| Resource | Link |
+|----------|------|
+| Final Presentation | [View slides]([YOUR_SLIDES_LINK](https://www.dokie.ai/presentation/share/eZn1ALy6WXDR)) |
+| API Documentation | http://localhost:8000/docs |
+| Dashboard | dashboard.html |
+| Dataset Source | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
+
+---
+
 **Course:** Big Data Engineering (DEAI)  
 **Year:** 2026  
 **Dataset:** NYC TLC Trip Record Data — https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
